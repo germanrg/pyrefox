@@ -118,8 +118,7 @@ class Firefox_manager(object):
             print '[+] File: ' + str(row[0]) + ' from source: ' + str(row[1]) + ' at: ' + str(row[2])'''
 
 if __name__ == '__main__':
-    #profile = raw_input("Profile path: ")
-    profile = "/home/gnrg/.mozilla/firefox/mwad0hks.default"
+    profile = raw_input("Profile path: ")
     try:
         ff = Firefox_manager(profile)
         print "\n[[  OK  ]] - Firefox Manager succesfully loaded!\n"

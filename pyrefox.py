@@ -17,6 +17,18 @@ class Spw(Structure):
 class SItem(Structure):
     _fields_ = [('type',c_uint),('data',c_void_p),('len',c_uint)]
 
+class Db_manager(object):
+    def __init__(self, db):
+        self.conn = sqlite3.connect(db)
+        self.cur = self.conn.cursor()
+
+    def query(self, arg):
+        self.cur.execute(arg)
+        return self.cur
+
+    def __del__(self):
+        self.conn.close()
+
 class Firefox_manager(object):
     def __init__(self, profile_path = None):
         self.profile_path = profile_path
@@ -92,34 +104,17 @@ class Firefox_manager(object):
         self.libnss.NSS_Shutdown()
         conn.close()
         return r
-
-    def get_cookies(self):
-        db_path = '/'.join((self.profile_path, 'cookies.sqlite'))
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        r = c.execute('SELECT baseDomain, appId, inBrowserElement, name, value, host, path, expiry, lastAccessed, creationTime, isSecure, isHttpOnly FROM moz_cookies;').fetchall()
-        conn.close()
-        return r
-
-    def get_history(self):
-        history_path = '/'.join((self.profile_path, 'places.sqlite'))
-        conn = sqlite3.connect(history_path)
-        c = conn.cursor()
-        r = c.execute("select url, datetime(visit_date/1000000, 'unixepoch') from moz_places, moz_historyvisits where visit_count > 0 and moz_places.id==moz_historyvisits.place_id;")
-        conn.close()
-        return r
-
     '''def get_downloads(self):
-        conn = sqlite3.connect()
+        downloads_path = '/'.join((self.profile_path, 'places.sqlite'))
+        conn = sqlite3.connect(downloads_path)
         c = conn.cursor()
-        c.execute("SELECT name, source, datetime(endTime/1000000,'unixepoch') FROM moz_downloads;")
+        c.execute("SELECT url, title, visit_count, favicon_id, datetime(last_visit_date/1000000) FROM moz_places;")
         print '\n[*] - Files Downloaded - '
         for row in c:
             print '[+] File: ' + str(row[0]) + ' from source: ' + str(row[1]) + ' at: ' + str(row[2])'''
 
 if __name__ == '__main__':
-    #profile = raw_input("Profile path: ")
-    profile = "/home/gnrg/.mozilla/firefox/mwad0hks.default"
+    profile = raw_input("Profile path: ")
     try:
         ff = Firefox_manager(profile)
         print "\n[[  OK  ]] - Firefox Manager succesfully loaded!\n"
@@ -136,10 +131,10 @@ if __name__ == '__main__':
     except Exception as e:
         print "[[ FAIL ]] - " + str(e)
 
-    history = ff.get_history()
-    cookies = ff.get_cookies()
-    #downloads = ff.get_downloads()
-
+    db_path = '/'.join((profile, 'cookies.sqlite'))
+    dbmgr = Db_manager(db_path)
+    cookies = dbmgr.query('SELECT baseDomain, appId, inBrowserElement, name, value, host, path, expiry, lastAccessed, creationTime, isSecure, isHttpOnly FROM moz_cookies;').fetchall()
+    
     print '\n\tCookies: [ ' + str(len(cookies)) + ' ]\n'
     cks = raw_input('Show cookies?[y/N]: ')
     if cks == 'y' or cks == 'Y':
@@ -149,3 +144,14 @@ if __name__ == '__main__':
             print "\tExpire:\t" + str(c[7]/1000)
             print "\tSecure:\t" + str((c[10]!=0))
             print "\tHTTPonly:\t" + str((c[11]!=0))
+        print ''
+
+    history_path = '/'.join((profile, 'places.sqlite'))
+    dbmgr = Db_manager(history_path)
+    history = dbmgr.query("select url, title, datetime(visit_date/1000000, 'unixepoch') from moz_places, moz_historyvisits where visit_count > 0 and moz_places.id==moz_historyvisits.place_id;")
+    h = raw_input('Show history?[y/N]: ')
+    if h == 'y' or h == 'Y':
+        for field in history:
+            print "\n\tDate: %s" % field[2]
+            print "\tTitle: %s" % field[1]
+            print "\tURL:" + field[0]
